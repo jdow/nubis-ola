@@ -47,5 +47,79 @@
         "InstanceType": "m3.medium"
       }
     }
+  },
+  "Resources": {
+    "EC2Stack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/nubisproject-stacks/master/ec2.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "StackName": {
+            "Ref": "AWS::StackName"
+          },
+          "ServiceName": {
+            "Ref": "ServiceName"
+          },
+          "TechnicalOwner": {
+            "Ref": "TechnicalOwner"
+          },
+          "Environment": {
+            "Ref": "Environment"
+          },
+          "AmiId": {
+            "Ref": "AmiId"
+          },
+          "SSHKeyName": {
+            "Ref": "SSHKeyName"
+          },
+          "InstanceType": {
+            "Fn::FindInMap": [
+              "InstanceTypeMap",
+              {
+                "Ref": "Environment"
+              },
+              "InstanceType"
+            ]
+          },
+          "ELB": {
+            "Fn::GetAtt": [
+              "ELBStack",
+              "Outputs.ELB"
+            ]
+          }
+        }
+      }
+    },
+    "ELBStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/nubisproject-stacks/master/elb.template",
+        "TimeoutInMinutes": "60",
+        "Parameters": {
+          "ServiceName": {
+            "Ref": "ServiceName"
+          },
+          "TechnicalOwner": {
+            "Ref": "TechnicalOwner"
+          },
+          "Environment": {
+            "Ref": "Environment"
+          },
+          "ElbHealthTarget": "HTTP:80/"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ELBDNSName": {
+      "Description": "Consul: / ELB CNAME",
+      "Value": {
+        "Fn::GetAtt": [
+          "ELBStack",
+          "Outputs.DNSName"
+        ]
+      }
+    }
   }
 }
