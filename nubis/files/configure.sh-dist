@@ -1,0 +1,53 @@
+#!/bin/bash
+
+OKTA_URL="https://example.okta.com"
+LDAP_HOSTNAME="ldap.example.com"
+LDAP_BIND_USER="uid=xxxxx,ou=logins,dc=example"
+LDAP_BIND_PASSWORD="xxxxxxxxxx"
+LDAP_BASE_DN="dc=example"
+LDAP_PORT="389"
+LDAP_SSL="n"
+USE_PROXY="n"
+EMAIL_ADDRESS="example@example.com"
+
+if [ -e /opt/Okta/OktaLDAPAgent/conf/InstallOktaLDAPAgent.conf ]; then
+    rm /opt/Okta/OktaLDAPAgent/conf/InstallOktaLDAPAgent.conf
+fi
+
+if [ -e /opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf ]; then
+    rm /opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf
+fi
+
+expect -c "
+set timeout -1
+spawn \"/opt/Okta/OktaLDAPAgent/scripts/configure_agent.sh\"
+expect \"Enter the base URL for your Okta organization (e.g. https://acme.okta.com): \"
+send \"$OKTA_URL\r\"
+expect \"Enter your LDAP server hostname: \"
+send \"$LDAP_HOSTNAME\r\"
+expect \"Enter your LDAP admin DN: \"
+send \"$LDAP_BIND_USER\r\"
+expect \"Enter your LDAP admin password (it will not be displayed): \"
+send \"$LDAP_BIND_PASSWORD\r\"
+expect \"Enter your base DN: \"
+send \"$LDAP_BASE_DN\r\"
+expect \"Use SSL (y/n)?\"
+send \"$LDAP_SSL\r\"
+expect \"Enter your LDAP server port: \"
+send \"$LDAP_PORT\r\"
+expect \"Enable proxy (y/n)?\"
+send \"$USE_PROXY\r\"
+expect \"as root.\"
+expect eof
+" 2>&1 | (
+  while read LINE; do
+    if echo "$LINE" | grep Please; then
+      echo $LINE | mail -s "Please configure Okta" $EMAIL_ADDRESS
+    fi
+    if echo "$LINE" | grep "expect: spawn id"; then
+      $0
+      exit
+    fi
+  done
+)
+service OktaLDAPAgent start
