@@ -1,53 +1,112 @@
 #!/bin/bash
+# Reverse engineered configure script
 
-OKTA_URL="https://example.okta.com"
-LDAP_HOSTNAME="ldap.example.com"
-LDAP_BIND_USER="uid=xxxxx,ou=logins,dc=example"
-LDAP_BIND_PASSWORD="xxxxxxxxxx"
-LDAP_BASE_DN="dc=example"
+# exits immediately pipes, list or loops return non-zero
+# Stolen from actual install script
+set -e
+
+OKTA_URL="xxxxx"
+LDAP_HOSTNAME="xxxxxxx"
+LDAP_BIND_USER="xxxxx"
+LDAP_BIND_PASSWORD="xxxxxx"
+LDAP_BASE_DN="xxxxxxx"
 LDAP_PORT="389"
 LDAP_SSL="n"
 USE_PROXY="n"
 EMAIL_ADDRESS="example@example.com"
+FROM_ADDRESS="no-reply@example.com"
 
-if [ -e /opt/Okta/OktaLDAPAgent/conf/InstallOktaLDAPAgent.conf ]; then
-    rm /opt/Okta/OktaLDAPAgent/conf/InstallOktaLDAPAgent.conf
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+# must use root
+if [[ "$(id -u)" != "0" ]]; then
+    echo -e "\nERROR: Please switch to root or use sudo to run this script\n"
+    exit 1
 fi
 
-if [ -e /opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf ]; then
-    rm /opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf
+# Some handy variables we can use
+. /opt/Okta/OktaLDAPAgent/scripts/defs.sh
+
+# We want a fresh install everytime, so lets delete it everytime
+if [ -e $InstallConfigFile ]; then
+    rm -f $InstallConfigFile
 fi
 
-expect -c "
-set timeout -1
-spawn \"/opt/Okta/OktaLDAPAgent/scripts/configure_agent.sh\"
-expect \"Enter the base URL for your Okta organization (e.g. https://acme.okta.com): \"
-send \"$OKTA_URL\r\"
-expect \"Enter your LDAP server hostname: \"
-send \"$LDAP_HOSTNAME\r\"
-expect \"Enter your LDAP admin DN: \"
-send \"$LDAP_BIND_USER\r\"
-expect \"Enter your LDAP admin password (it will not be displayed): \"
-send \"$LDAP_BIND_PASSWORD\r\"
-expect \"Enter your base DN: \"
-send \"$LDAP_BASE_DN\r\"
-expect \"Use SSL (y/n)?\"
-send \"$LDAP_SSL\r\"
-expect \"Enter your LDAP server port: \"
-send \"$LDAP_PORT\r\"
-expect \"Enable proxy (y/n)?\"
-send \"$USE_PROXY\r\"
-expect \"as root.\"
-expect eof
-" 2>&1 | (
-  while read LINE; do
+# Validate ldap settings
+set +e
+
+$JAVA -Dagent_home="$AgentInstallPrefix" -Dlog4j.configuration="$AgentInstallPrefix/conf/log4j.properties" -jar $AgentInstallPrefix/bin/OktaLDAPAgent.jar \
+    -mode "validateLdap" \
+    -orgUrl "$OKTA_URL" \
+    -ldapHost "$LDAP_HOSTNAME" \
+    -ldapPort "$LDAP_PORT" \
+    -ldapAdminDN "$LDAP_BIND_USER" \
+    -ldapAdminPassword "$LDAP_BIND_PASSWORD" \
+    -baseDN "$LDAP_BASE_DN" \
+    -configFilePath "$ConfigFile" \
+    -noInstance "true" \
+    -ldapUseSSL "$LDAP_SSL" 2>&1 > /dev/null
+
+RV=$?
+if [[ ${RV} == 0 ]]; then
+    echo "LDAP Settings verified"
+else
+    echo "LDAP settings failed, verify if settings are correct" | mail -r ${FROM_ADDRESS} -s "LDAP verification failed" ${EMAIL_ADDRESS}
+    exit ${RV}
+fi
+
+echo -e "\nSaving install configuration file for future upgrades at:\n  $InstallConfigFile"
+echo """
+# Okta LDAP Agent Install configuration file.
+# This file is read during the post-installation or configuration time only.
+
+orgUrl=$OKTA_URL
+
+ldapHost=$LDAP_HOSTNAME
+ldapAdminDN=$LDAP_BIND_USER
+ldapPort=$LDAP_PORT
+baseDN=$LDAP_BASE_DN
+
+ldapUseSSL=$LDAP_SSL
+ldapSSLPort=$ldapSSLPort
+
+proxyEnabled=$proxyEnabled
+proxyHost=$proxyHost
+proxyPort=$proxyPort
+proxyUser=$proxyUser
+""" > $InstallConfigFile
+
+echo -e "\nConfiguring Okta LDAP agent...\n"
+$JAVA -Dagent_home="$AgentInstallPrefix" -Dlog4j.configuration="$AgentInstallPrefix/conf/log4j.properties" -jar $AgentInstallPrefix/bin/OktaLDAPAgent.jar \
+    -mode "register" \
+    -orgUrl "$OKTA_URL" \
+    -ldapHost "$LDAP_HOSTNAME" \
+    -ldapPort "$LDAP_PORT" \
+    -ldapAdminDN "$LDAP_BIND_USER" \
+    -ldapAdminPassword "$LDAP_BIND_PASSWORD" \
+    -baseDN "$LDAP_BASE_DN" \
+    -configFilePath "$ConfigFile" \
+    -noInstance "true" \
+    -ldapUseSSL "$LDAP_SSL" 2>&1 | (
+while read LINE; do
     if echo "$LINE" | grep Please; then
-      echo $LINE | mail -s "Please configure Okta" $EMAIL_ADDRESS
+        echo $LINE | mail -r ${FROM_ADDRESS} -s "Please configure Okta" ${EMAIL_ADDRESS}
     fi
-    if echo "$LINE" | grep "expect: spawn id"; then
-      $0
-      exit
-    fi
-  done
+done
 )
-service OktaLDAPAgent start
+
+RV=${PIPESTATUS[0]}
+
+if [[ ${RV} == 0 ]] && [[ -r $ConfigFile ]] ; then
+    echo -e """
+Configuration successful.
+Service can now be started by typing:
+    service OktaLDAPAgent start
+as root.
+    """ | mail -r ${FROM_ADDRESS} -s "Okta configuration sucessful" ${EMAIL_ADDRESS}
+    service OktaLDAPAgent start
+    exit 0
+else
+    echo "Running ${0} again"
+    . ${0}
+fi
