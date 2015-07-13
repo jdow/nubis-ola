@@ -32,6 +32,11 @@ if [ -e $InstallConfigFile ]; then
     rm -f $InstallConfigFile
 fi
 
+if [[ -e /tmp/okta.configured ]]; then
+    echo -e "\nOkta already configured, not running configure script\n"
+    exit 0
+fi
+
 # Validate ldap settings
 set +e
 
@@ -105,6 +110,7 @@ Service can now be started by typing:
 as root.
     """ | mail -r ${FROM_ADDRESS} -s "Okta configuration sucessful" ${EMAIL_ADDRESS}
     service OktaLDAPAgent start
+    touch /tmp/okta.configured
     exit 0
 else
     echo "Running ${0} again"
