@@ -33,6 +33,26 @@
     "AmiId": {
       "Description": "The id of the ami for this region",
       "Type": "String"
+    },
+    "OktaURL": {
+      "Description": "The okta url for your org",
+      "Type": "String"
+    },
+    "LDAPHostname": {
+      "Description": "Hostname of your LDAP server",
+      "Type": "String"
+    },
+    "LDAPBindUser": {
+      "Description": "Bind user",
+      "Type": "String"
+    },
+    "LDAPBindPassword": {
+      "Description": "LDAP Bind password",
+      "Type": "String"
+    },
+    "LDAPBaseDN": {
+      "Description": "Base bind DN",
+      "Type": "String"
     }
   },
   "Mappings": {
@@ -119,6 +139,36 @@
           "ELBStack",
           "Outputs.DNSName"
         ]
+      }
+    },
+    "OktaURL": {
+      "Description": "Consul: / Okta URL",
+      "Value": {
+        "Ref": "OktaURL"
+      }
+    },
+    "LDAPHostname": {
+      "Description": "Consul: / LDAP Hostname",
+      "Value": {
+        "Ref": "LDAPHostname"
+      }
+    },
+    "LDAPBindUser": {
+      "Description": "Consul: / LDAP Bind User",
+      "Value": {
+        "Ref": "LDAPBindUser"
+      }
+    },
+    "LDAPBindPassword": {
+      "Description": "Consul: / LDAP Bind Password",
+      "Value": {
+        "Ref": "LDAPBindUser"
+      }
+    },
+    "LDAPBaseDN": {
+      "Description": "Consul: / LDAP Base DN",
+      "Value": {
+        "Ref": "LDAPBaseDN"
       }
     }
   }
