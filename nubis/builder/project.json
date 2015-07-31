@@ -7,7 +7,7 @@
     ],
     "project_description": "nubis-ola install",
     "project_name": "nubis-ola",
-    "project_version": "0.55",
+    "project_version": "0.57",
     "source_ami_project_name": "nubis-base"
   }
 }
