@@ -1,5 +1,5 @@
 {
-  "Provisioners": [
+  "provisioners": [
     {
       "type": "file",
       "source": "nubis/files/configure.sh-dist",
