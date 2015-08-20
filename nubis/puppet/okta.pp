@@ -1,4 +1,4 @@
-$okta_version = "01.02.09"
+$okta_version = "05.02.01"
 
 exec {
     'download-okta-agent':
