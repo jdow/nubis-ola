@@ -1,19 +1,21 @@
+$okta_version = "01.02.09"
+
 exec {
     'download-okta-agent':
-        command => '/usr/bin/wget https://mozilla-admin.okta.com/static/ldap-agent/OktaLDAPAgent-01.02.09_amd64.deb',
+        command => "/usr/bin/wget https://mozilla-admin.okta.com/static/ldap-agent/OktaLDAPAgent-${okta_version}_amd64.deb",
         cwd     => '/root/',
-        creates => '/root/OktaLDAPAgent-01.02.09_amd64.deb',
-        before  => Package['OktaLDAPAgent-01.02.09_amd64'],
+        creates => "/root/OktaLDAPAgent-${okta_version}_amd64.deb",
+        before  => Package["OktaLDAPAgent-${okta_version}_amd64"],
 }
 
 package {
     'default-jre':
-        before  => Package['OktaLDAPAgent-01.02.09_amd64'],
+        before  => Package["OktaLDAPAgent-${okta_version}_amd64"],
         ensure => latest;
-    'OktaLDAPAgent-01.02.09_amd64':
+    "OktaLDAPAgent-${okta_version}_amd64":
         provider => 'dpkg',
         ensure   => installed,
-        source   => '/root/OktaLDAPAgent-01.02.09_amd64.deb';
+        source   => "/root/OktaLDAPAgent-${okta_version}_amd64.deb";
     'expect':
         ensure => latest;
     'mailutils':
