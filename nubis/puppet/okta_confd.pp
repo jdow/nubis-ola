@@ -3,7 +3,7 @@
 file { '/etc/confd/conf.d/okta.toml':
     ensure => file,
     owner  => root,
-    owner  => root,
+    group  => root,
     mode   => '0644',
     source => 'puppet:///nubis/files/okta.toml',
 }
