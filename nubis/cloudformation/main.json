@@ -53,18 +53,22 @@
     "LDAPBaseDN": {
       "Description": "Base bind DN",
       "Type": "String"
+    },
+    "ConsulToken": {
+      "Description": "Consul ACL token",
+      "Type": "String"
     }
   },
   "Mappings": {
     "InstanceTypeMap": {
       "prod": {
-        "InstanceType": "m3.large"
+        "InstanceType": "t2.small"
       },
       "stage": {
-        "InstanceType": "m3.medium"
+        "InstanceType": "t2.small"
       },
       "sandbox": {
-        "InstanceType": "m3.medium"
+        "InstanceType": "t2.micro"
       }
     }
   },
@@ -102,45 +106,14 @@
               "InstanceType"
             ]
           },
-          "ELB": {
-            "Fn::GetAtt": [
-              "ELBStack",
-              "Outputs.ELB"
-            ]
+          "ConsulToken": {
+            "Ref": "ConsulToken"
           }
-        }
-      }
-    },
-    "ELBStack": {
-      "Type": "AWS::CloudFormation::Stack",
-      "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/nubisproject-stacks/master/elb.template",
-        "TimeoutInMinutes": "60",
-        "Parameters": {
-          "ServiceName": {
-            "Ref": "ServiceName"
-          },
-          "TechnicalOwner": {
-            "Ref": "TechnicalOwner"
-          },
-          "Environment": {
-            "Ref": "Environment"
-          },
-          "ElbHealthTarget": "HTTP:80/"
         }
       }
     }
   },
   "Outputs": {
-    "ELBDNSName": {
-      "Description": "Consul: / ELB CNAME",
-      "Value": {
-        "Fn::GetAtt": [
-          "ELBStack",
-          "Outputs.DNSName"
-        ]
-      }
-    },
     "OktaURL": {
       "Description": "Consul: / Okta URL",
       "Value": {
