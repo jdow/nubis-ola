@@ -16,8 +16,6 @@ package {
         provider => 'dpkg',
         ensure   => installed,
         source   => "/root/OktaLDAPAgent-${okta_version}_amd64.deb";
-    'expect':
-        ensure => latest;
     'mailutils':
         ensure => latest;
 }
