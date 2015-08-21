@@ -5,15 +5,6 @@
       "source": "nubis/files/configure.sh-dist",
       "destination": "/tmp/configure",
       "order": "11"
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo mv /tmp/configure /etc/nubis.d/configure",
-        "sudo chown root:root /etc/nubis.d/configure",
-        "sudo chmod 755 /etc/nubis.d/configure"
-      ],
-      "order": "12"
     }
   ]
 }
