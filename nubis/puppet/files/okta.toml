@@ -1,0 +1,10 @@
+[template]
+src = "okta.tmpl"
+dest = "/opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf"
+prefix = "/%%STACK%%/%%ENVIRONMENT%%/config"
+
+keys =  [
+    "/okta-config"
+]
+
+reload_cmd = "service OktaLDAPAgent restart"
