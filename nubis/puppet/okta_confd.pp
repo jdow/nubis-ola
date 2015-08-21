@@ -21,6 +21,6 @@ file { '/etc/nubis.d/99-okta-fixup':
     owner   => root,
     group   => root,
     mode    => '0755',
-    source  => 'puppet:///nubis/files/nubis-fixup',
+    source  => 'puppet:///nubis/files/okta-fixup',
     require => [ File['/etc/confd/conf.d/okta.toml'], File['/etc/confd/templates/okta.tmpl'] ],
 }
