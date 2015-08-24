@@ -10,6 +10,32 @@ if [[ "$(id -u)" != "0" ]]; then
     exit 1
 fi
 
+eval `curl -s -fq http://169.254.169.254/latest/user-data`
+CONSUL="http://localhost:8500/v1/kv/${NUBIS_STACK}/${NUBIS_ENVIRONMENT}/config"
+
+# Grabbing information from Consul
+function _init() {
+    OKTA_URL=$(curl -s -fq ${CONSUL}/OktaURL?raw=1)
+
+    LDAP_HOSTNAME=$(curl -s -fq ${CONSUL}/LDAPHostname?raw=1)
+    [ -z ${LDAP_HOSTNAME} ] && { echo "LDAP Hostname is not set"; exit 1; }
+
+    LDAP_PORT=$(curl -s -fq ${CONSUL}/LDAPPort?raw=1)
+    LDAP_PORT=${LDAP_PORT:-389}
+
+    LDAP_BIND_USER=$(curl -s -fq ${CONSUL}/LDAPBindUser?raw=1)
+    [ -z ${LDAP_BIND_USER} ] && { echo "LDAP Bind User is not set"; exit 1; }
+
+    LDAP_BIND_PASSWORD=$(curl -s -fq ${CONSUL}/LDAPBindPassword?raw=1)
+    [ -z ${LDAP_BIND_PASSWORD} ] && { echo "LDAP Bind Password is not set"; exit 1; }
+
+    LDAP_BASE_DN=$(curl -s -fq ${CONSUL}/LDAPBaseDN?raw=1)
+    [ -z ${LDAP_BASE_DN} ] && { echo "LDAP Base DN is not set"; exit 1; }
+
+    LDAP_SSL=$(curl -s -fq ${CONSUL}/LDAPSSL?raw=1)
+    LDAP_SSL=${LDAP_SSL:-"n"}
+}
+
 function validate_ldap() {
     # Some handy variables we can use
     . /opt/Okta/OktaLDAPAgent/scripts/defs.sh
@@ -63,6 +89,9 @@ function register_okta() {
 }
 
 read -p "You are are about to reconfigure Okta, and will overwrite the current configuration. Are you sure? [y/n]: " answer
+
+# initialize all the things
+_init
 
 if [[ "$answer" == "y" ]]; then
     validate_ldap
