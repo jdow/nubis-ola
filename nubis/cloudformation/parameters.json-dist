@@ -20,6 +20,10 @@
     "ParameterValue": "ami-abcdef123"
   },
   {
+      "ParameterKey": "ConsulToken",
+      "ParameterValue": "abcd-1234-efgh-4567"
+  }
+  {
     "ParameterKey": "OktaURL",
     "ParameterValue": "https://acme.okta.com"
   },
