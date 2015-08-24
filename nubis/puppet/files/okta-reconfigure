@@ -1,0 +1,75 @@
+#!/bin/bash
+# This will reconfigure okta and overwrite the configuration in consul
+#
+# You shouldn't be doing this unless there is a good reason and this script
+# is more of a helper script that is available on the OS if you need it
+
+# must use root
+if [[ "$(id -u)" != "0" ]]; then
+    echo -e "\nERROR: Please switch to root or use sudo to run this script\n"
+    exit 1
+fi
+
+function validate_ldap() {
+    # Some handy variables we can use
+    . /opt/Okta/OktaLDAPAgent/scripts/defs.sh
+
+    $JAVA -Dagent_home="$AgentInstallPrefix" -Dlog4j.configuration="$AgentInstallPrefix/conf/log4j.properties" -jar $AgentInstallPrefix/bin/OktaLDAPAgent.jar \
+        -mode "validateLdap" \
+        -orgUrl "$OKTA_URL" \
+        -ldapHost "$LDAP_HOSTNAME" \
+        -ldapPort "$LDAP_PORT" \
+        -ldapAdminDN "$LDAP_BIND_USER" \
+        -ldapAdminPassword "$LDAP_BIND_PASSWORD" \
+        -baseDN "$LDAP_BASE_DN" \
+        -configFilePath "$ConfigFile" \
+        -noInstance "true" \
+        -ldapUseSSL "$LDAP_SSL" 2>&1 > /dev/null
+    RV=$?
+
+    if [[ "$RV" == 0 ]]; then
+        echo "LDAP settings verified"
+        return 0
+    else
+        echo "LDAP settings failed"
+        return ${RV}
+    fi
+}
+
+function register_okta() {
+    # Some handy variables we can use
+    . /opt/Okta/OktaLDAPAgent/scripts/defs.sh
+
+    echo -e "\nSaving install configuration file for future upgrades at:\n  $InstallConfigFile"
+    echo """
+    # Okta LDAP Agent Install configuration file.
+    # This file is read during the post-installation or configuration time only.
+
+    orgUrl=$OKTA_URL
+
+    ldapHost=$LDAP_HOSTNAME
+    ldapAdminDN=$LDAP_BIND_USER
+    ldapPort=$LDAP_PORT
+    baseDN=$LDAP_BASE_DN
+
+    ldapUseSSL=$LDAP_SSL
+    ldapSSLPort=$ldapSSLPort
+
+    proxyEnabled=$proxyEnabled
+    proxyHost=$proxyHost
+    proxyPort=$proxyPort
+    proxyUser=$proxyUser
+    """ > $InstallConfigFile
+}
+
+read -p "You are are about to reconfigure Okta, and will overwrite the current configuration. Are you sure? [y/n]: " answer
+
+if [[ "$answer" == "y" ]]; then
+    validate_ldap
+elif [[ "$answer" == "n" ]]; then
+    echo "Aborting.."
+    return 1
+else
+    echo "Invalid input"
+    return 1
+fi
