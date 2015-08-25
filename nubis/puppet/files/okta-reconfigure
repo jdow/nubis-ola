@@ -105,6 +105,7 @@ function register_okta() {
 read -p "You are are about to reconfigure Okta, and will overwrite the current configuration. Are you sure? [y/n]: " answer
 
 # initialize all the things
+echo "Grabbing information from consul"
 _init
 
 if [[ "$answer" == "y" ]]; then
