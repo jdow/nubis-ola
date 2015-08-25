@@ -16,6 +16,7 @@ CONSUL="http://localhost:8500/v1/kv/${NUBIS_STACK}/${NUBIS_ENVIRONMENT}/config"
 # Grabbing information from Consul
 function _init() {
     OKTA_URL=$(curl -s -fq ${CONSUL}/OktaURL?raw=1)
+    OKTA_URL=${OKTA_URL:-https://mozilla.oktapreview.com}
 
     LDAP_HOSTNAME=$(curl -s -fq ${CONSUL}/LDAPHostname?raw=1)
     [ -z ${LDAP_HOSTNAME} ] && { echo "LDAP Hostname is not set"; exit 1; }
@@ -86,6 +87,19 @@ function register_okta() {
     proxyPort=$proxyPort
     proxyUser=$proxyUser
     """ > $InstallConfigFile
+
+    echo -e "\nConfiguring Okta LDAP agent...\n"
+    $JAVA -Dagent_home="$AgentInstallPrefix" -Dlog4j.configuration="$AgentInstallPrefix/conf/log4j.properties" -jar $AgentInstallPrefix/bin/OktaLDAPAgent.jar \
+        -mode "register" \
+        -orgUrl "$OKTA_URL" \
+        -ldapHost "$LDAP_HOSTNAME" \
+        -ldapPort "$LDAP_PORT" \
+        -ldapAdminDN "$LDAP_BIND_USER" \
+        -ldapAdminPassword "$LDAP_BIND_PASSWORD" \
+        -baseDN "$LDAP_BASE_DN" \
+        -configFilePath "$ConfigFile" \
+        -noInstance "true" \
+        -ldapUseSSL "$LDAP_SSL"
 }
 
 read -p "You are are about to reconfigure Okta, and will overwrite the current configuration. Are you sure? [y/n]: " answer
@@ -94,7 +108,12 @@ read -p "You are are about to reconfigure Okta, and will overwrite the current c
 _init
 
 if [[ "$answer" == "y" ]]; then
-    validate_ldap
+    if validate_ldap; then
+        echo "Validation sucess!"
+    else
+        echo "Failed
+        exit 1
+    fi
 elif [[ "$answer" == "n" ]]; then
     echo "Aborting.."
     return 1
