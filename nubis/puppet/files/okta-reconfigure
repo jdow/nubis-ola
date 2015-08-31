@@ -13,10 +13,41 @@ fi
 eval `curl -s -fq http://169.254.169.254/latest/user-data`
 CONSUL="http://localhost:8500/v1/kv/${NUBIS_STACK}/${NUBIS_ENVIRONMENT}/config"
 
+# Simple logging function
+function log() {
+
+    local LOGGER_BIN='/usr/bin/logger'
+    local LOGMSG=$1
+
+    [ -z "$LOGMSG" ] && { echo "Usage: $FUNCNAME [log message]"; exit 1; }
+
+    # Set up the logger command if the binary is installed
+    if [ ! -x $LOGGER_BIN ]; then
+        # If logger is not installed just stderr it out
+        echo "$LOGMSG"
+    else
+        $LOGGER_BIN --stderr --priority local7.info --tag ${BASH_SOURCE} "$LOGMSG"
+    fi
+}
+
 # Change hostname so that okta admin panel shows reasonable names
-#function _set_hostname() {
-#
-#}
+function _set_hostname() {
+    local HOSTNAME=$1
+    [ -z "$HOSTNAME" ] && { echo "Usage: $FUNCNAME hostname"; exit 1; }
+
+    if [ ! -f /etc/hostname ]; then
+        log "No hostname file, not changing hostname"
+        return 1
+    fi
+
+    NEWHOSTFILE=$(mktemp)
+    echo "$HOSTNAME" > $NEWHOSTFILE
+    cp -f /etc/hostname /etc/hostname.oktasave
+    mv -f $NEWHOSTFILE /etc/hostname
+
+    # Change hostname
+    service hostname restart
+}
 
 # Grabbing information from Consul
 function _init() {
@@ -42,22 +73,6 @@ function _init() {
     LDAP_SSL=${LDAP_SSL:-"n"}
 }
 
-function log() {
-
-    local LOGGER_BIN='/usr/bin/logger'
-    local LOGMSG=$1
-
-    [ -z "$LOGMSG" ] && { echo "Usage: $FUNCNAME [log message]"; exit 1; }
-
-    # Set up the logger command if the binary is installed
-    if [ ! -x $LOGGER_BIN ]; then
-        # If logger is not installed just stderr it out
-        echo "$LOGMSG"
-    else
-        $LOGGER_BIN --stderr --priority local7.info --tag ${BASH_SOURCE} "$LOGMSG"
-    fi
-}
-
 function validate_ldap() {
     # Some handy variables we can use
     . /opt/Okta/OktaLDAPAgent/scripts/defs.sh
@@ -76,10 +91,10 @@ function validate_ldap() {
     RV=$?
 
     if [[ "$RV" == 0 ]]; then
-        echo "LDAP settings verified"
+        log "LDAP settings verified"
         return 0
     else
-        echo "LDAP settings failed"
+        log "LDAP settings failed"
         return ${RV}
     fi
 }
