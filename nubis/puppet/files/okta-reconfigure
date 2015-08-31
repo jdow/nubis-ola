@@ -133,7 +133,7 @@ if [[ "$answer" == "y" ]]; then
     if validate_ldap; then
         log "LDAP setting validated from consul"
     else
-        echo "Failed
+        log "LDAP settings failed to validate"
         exit 1
     fi
 elif [[ "$answer" == "n" ]]; then
