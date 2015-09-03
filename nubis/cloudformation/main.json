@@ -37,7 +37,7 @@
     "StacksVersion": {
       "Description": "Version of the nubis stack",
       "Type": "String",
-      "Default": "master"
+      "Default": "v1.0.0"
     },
     "OktaURL": {
       "Description": "The okta url for your org",
