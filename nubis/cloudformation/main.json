@@ -12,15 +12,11 @@
       "Type": "String",
       "AllowedValues": [
         "prod",
+        "admin",
         "stage",
         "sandbox"
       ],
       "ConstraintDescription": "Must specify prod, stage, or sandbox."
-    },
-    "BaseZone": {
-      "Description": "Base zone to create route53 zone in",
-      "Default": "nubis.allizom.org",
-      "Type": "String"
     },
     "SSHKeyName": {
       "Description": "Existing ssh key to deploy to EC2 instances",
@@ -81,7 +77,7 @@
     "EC2Stack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": { "Fn::Join": [ "/", [ "https://s3.amazonaws.com/nubisproject-stacks", { "Ref": "StacksVersion" }, "ec2.template" ] ] },
+        "TemplateURL": { "Fn::Join": [ "/", [ "https://s3.amazonaws.com/nubis-stacks", { "Ref": "StacksVersion" }, "ec2.template" ] ] },
         "TimeoutInMinutes": "60",
         "Parameters": {
           "StackName": {
