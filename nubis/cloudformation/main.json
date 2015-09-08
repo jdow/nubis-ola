@@ -57,7 +57,8 @@
     },
     "ConsulToken": {
       "Description": "Consul ACL token",
-      "Type": "String"
+      "Type": "String",
+      "Default": ""
     }
   },
   "Mappings": {
@@ -71,6 +72,16 @@
       "sandbox": {
         "InstanceType": "t2.micro"
       }
+    }
+  },
+  "Conditions": {
+    "NotSet_ConsulToken": {
+      "Fn::Equals": [
+        {
+          "Ref": "ConsulToken"
+        },
+        ""
+      ]
     }
   },
   "Resources": {
@@ -108,7 +119,15 @@
             ]
           },
           "ConsulToken": {
-            "Ref": "ConsulToken"
+            "Fn::If": [
+              "NotSet_ConsulToken",
+              {
+                "Ref": "AWS::NoValue"
+              },
+              {
+                "Ref": "ConsulToken"
+              }
+            ]
           }
         }
       }
