@@ -1,0 +1,195 @@
+#!/bin/bash
+# This will reconfigure okta and overwrite the configuration in consul
+#
+# You shouldn't be doing this unless there is a good reason and this script
+# is more of a helper script that is available on the OS if you need it
+
+# must use root
+if [[ "$(id -u)" != "0" ]]; then
+    echo -e "\nERROR: Please switch to root or use sudo to run this script\n"
+    exit 1
+fi
+
+eval `curl -s -fq http://169.254.169.254/latest/user-data`
+CONSUL="http://localhost:8500/v1/kv/${NUBIS_STACK}/${NUBIS_ENVIRONMENT}/config"
+
+# Simple logging function
+function log() {
+
+    local LOGGER_BIN='/usr/bin/logger'
+    local LOGMSG=$1
+
+    [ -z "$LOGMSG" ] && { echo "Usage: $FUNCNAME [log message]"; exit 1; }
+
+    # Set up the logger command if the binary is installed
+    if [ ! -x $LOGGER_BIN ]; then
+        # If logger is not installed just stderr it out
+        echo "$LOGMSG"
+    else
+        $LOGGER_BIN --stderr --priority local7.info --tag ${BASH_SOURCE} "$LOGMSG"
+    fi
+}
+
+# Change hostname so that okta admin panel shows reasonable names
+function _set_hostname() {
+    local HOSTNAME=$1
+    [ -z "$HOSTNAME" ] && { echo "Usage: $FUNCNAME hostname"; exit 1; }
+
+    if [ ! -f /etc/hostname ]; then
+        log "No hostname file, not changing hostname"
+        return 1
+    fi
+
+    NEWHOSTFILE=$(mktemp)
+    echo "$HOSTNAME" > $NEWHOSTFILE
+    cp -f /etc/hostname /etc/hostname.oktasave
+    mv -f $NEWHOSTFILE /etc/hostname
+
+    # Change hostname
+    service hostname restart
+}
+
+function _reset_hostname() {
+    if [ ! -f /etc/hostname.oktasave ]; then
+        log "Backup hostname now found"
+        return 1
+    fi
+
+    cp -f /etc/hostname.oktasave /etc/hostname
+
+    service hostname restart
+}
+
+# Grabbing information from Consul
+function _init() {
+    OKTA_URL=$(curl -s -fq ${CONSUL}/OktaURL?raw=1)
+    OKTA_URL=${OKTA_URL:-https://mozilla.oktapreview.com}
+
+    LDAP_HOSTNAME=$(curl -s -fq ${CONSUL}/LDAPHostname?raw=1)
+    [ -z ${LDAP_HOSTNAME} ] && { echo "LDAP Hostname is not set"; exit 1; }
+
+    LDAP_PORT=$(curl -s -fq ${CONSUL}/LDAPPort?raw=1)
+    LDAP_PORT=${LDAP_PORT:-389}
+
+    LDAP_BIND_USER=$(curl -s -fq ${CONSUL}/LDAPBindUser?raw=1)
+    [ -z ${LDAP_BIND_USER} ] && { echo "LDAP Bind User is not set"; exit 1; }
+
+    LDAP_BIND_PASSWORD=$(curl -s -fq ${CONSUL}/LDAPBindPassword?raw=1)
+    [ -z ${LDAP_BIND_PASSWORD} ] && { echo "LDAP Bind Password is not set"; exit 1; }
+
+    LDAP_BASE_DN=$(curl -s -fq ${CONSUL}/LDAPBaseDN?raw=1)
+    [ -z ${LDAP_BASE_DN} ] && { echo "LDAP Base DN is not set"; exit 1; }
+
+    LDAP_SSL=$(curl -s -fq ${CONSUL}/LDAPSSL?raw=1)
+    LDAP_SSL=${LDAP_SSL:-"n"}
+}
+
+function validate_ldap() {
+    # Some handy variables we can use
+    . /opt/Okta/OktaLDAPAgent/scripts/defs.sh
+
+    $JAVA -Dagent_home="$AgentInstallPrefix" -Dlog4j.configuration="$AgentInstallPrefix/conf/log4j.properties" -jar $AgentInstallPrefix/bin/OktaLDAPAgent.jar \
+        -mode "validateLdap" \
+        -orgUrl "$OKTA_URL" \
+        -ldapHost "$LDAP_HOSTNAME" \
+        -ldapPort "$LDAP_PORT" \
+        -ldapAdminDN "$LDAP_BIND_USER" \
+        -ldapAdminPassword "$LDAP_BIND_PASSWORD" \
+        -baseDN "$LDAP_BASE_DN" \
+        -configFilePath "$ConfigFile" \
+        -noInstance "true" \
+        -ldapUseSSL "$LDAP_SSL" 2>&1 > /dev/null
+    RV=$?
+
+    if [[ "$RV" == 0 ]]; then
+        log "LDAP settings verified"
+        return 0
+    else
+        log "LDAP settings failed"
+        return ${RV}
+    fi
+}
+
+function register_okta() {
+    # Some handy variables we can use
+    . /opt/Okta/OktaLDAPAgent/scripts/defs.sh
+
+    echo -e "\nSaving install configuration file for future upgrades at:\n  $InstallConfigFile"
+    echo """
+    # Okta LDAP Agent Install configuration file.
+    # This file is read during the post-installation or configuration time only.
+
+    orgUrl=$OKTA_URL
+
+    ldapHost=$LDAP_HOSTNAME
+    ldapAdminDN=$LDAP_BIND_USER
+    ldapPort=$LDAP_PORT
+    baseDN=$LDAP_BASE_DN
+
+    ldapUseSSL=$LDAP_SSL
+    ldapSSLPort=$ldapSSLPort
+
+    proxyEnabled=$proxyEnabled
+    proxyHost=$proxyHost
+    proxyPort=$proxyPort
+    proxyUser=$proxyUser
+    """ > $InstallConfigFile
+
+    echo -e "\nConfiguring Okta LDAP agent...\n"
+    $JAVA -Dagent_home="$AgentInstallPrefix" -Dlog4j.configuration="$AgentInstallPrefix/conf/log4j.properties" -jar $AgentInstallPrefix/bin/OktaLDAPAgent.jar \
+        -mode "register" \
+        -orgUrl "$OKTA_URL" \
+        -ldapHost "$LDAP_HOSTNAME" \
+        -ldapPort "$LDAP_PORT" \
+        -ldapAdminDN "$LDAP_BIND_USER" \
+        -ldapAdminPassword "$LDAP_BIND_PASSWORD" \
+        -baseDN "$LDAP_BASE_DN" \
+        -configFilePath "$ConfigFile" \
+        -noInstance "true" \
+        -ldapUseSSL "$LDAP_SSL"
+
+    RV=$?
+
+    return ${RV}
+}
+
+read -p "You are are about to reconfigure Okta, and will overwrite the current configuration. Are you sure? [y/n]: " answer
+
+# initialize all the things
+echo "Grabbing information from consul"
+_init
+
+if [[ "$answer" == "y" ]]; then
+    if validate_ldap; then
+        log "LDAP setting validated from consul"
+
+        log "Stopping confd"
+        service confd stop
+
+        log "Reconfiguring okta"
+        register_okta
+
+        RV=$?
+        if [[ $RV == 0 ]] && [[ -f '/opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf' ]]; then
+            log "Okta reconfigured, pushing it up to consul"
+            # TODO: Need to check if the output actually worked
+            curl -fq -s -X PUT -T '/opt/Okta/OktaLDAPAgent/conf/OktaLDAPAgent.conf' ${CONSUL}/okta-config
+        fi
+
+        log "Starting confd"
+        service confd start
+
+        log "Restarting okta"
+        service OktaLDAPAgent restart
+
+    else
+        log "LDAP settings failed to validate"
+        exit 1
+    fi
+elif [[ "$answer" == "n" ]]; then
+    echo "Aborting.."
+    return 1
+else
+    echo "Invalid input"
+    return 1
+fi

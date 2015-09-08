@@ -12,15 +12,11 @@
       "Type": "String",
       "AllowedValues": [
         "prod",
+        "admin",
         "stage",
         "sandbox"
       ],
       "ConstraintDescription": "Must specify prod, stage, or sandbox."
-    },
-    "BaseZone": {
-      "Description": "Base zone to create route53 zone in",
-      "Default": "nubis.allizom.org",
-      "Type": "String"
     },
     "SSHKeyName": {
       "Description": "Existing ssh key to deploy to EC2 instances",
@@ -33,6 +29,11 @@
     "AmiId": {
       "Description": "The id of the ami for this region",
       "Type": "String"
+    },
+    "StacksVersion": {
+      "Description": "Version of the nubis stack",
+      "Type": "String",
+      "Default": "v1.0.0"
     },
     "OktaURL": {
       "Description": "The okta url for your org",
@@ -53,26 +54,52 @@
     "LDAPBaseDN": {
       "Description": "Base bind DN",
       "Type": "String"
+    },
+    "ConsulToken": {
+      "Description": "Consul ACL token",
+      "Type": "String",
+      "Default": ""
     }
   },
   "Mappings": {
     "InstanceTypeMap": {
       "prod": {
-        "InstanceType": "m3.large"
+        "InstanceType": "t2.small"
       },
       "stage": {
-        "InstanceType": "m3.medium"
+        "InstanceType": "t2.small"
       },
       "sandbox": {
-        "InstanceType": "m3.medium"
+        "InstanceType": "t2.micro"
       }
+    }
+  },
+  "Conditions": {
+    "NotSet_ConsulToken": {
+      "Fn::Equals": [
+        {
+          "Ref": "ConsulToken"
+        },
+        ""
+      ]
     }
   },
   "Resources": {
     "EC2Stack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/nubisproject-stacks/master/ec2.template",
+        "TemplateURL": {
+          "Fn::Join": [
+            "/",
+            [
+              "https://s3.amazonaws.com/nubis-stacks",
+              {
+                "Ref": "StacksVersion"
+              },
+              "ec2.template"
+            ]
+          ]
+        },
         "TimeoutInMinutes": "60",
         "Parameters": {
           "StackName": {
@@ -102,45 +129,22 @@
               "InstanceType"
             ]
           },
-          "ELB": {
-            "Fn::GetAtt": [
-              "ELBStack",
-              "Outputs.ELB"
+          "ConsulToken": {
+            "Fn::If": [
+              "NotSet_ConsulToken",
+              {
+                "Ref": "AWS::NoValue"
+              },
+              {
+                "Ref": "ConsulToken"
+              }
             ]
           }
-        }
-      }
-    },
-    "ELBStack": {
-      "Type": "AWS::CloudFormation::Stack",
-      "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/nubisproject-stacks/master/elb.template",
-        "TimeoutInMinutes": "60",
-        "Parameters": {
-          "ServiceName": {
-            "Ref": "ServiceName"
-          },
-          "TechnicalOwner": {
-            "Ref": "TechnicalOwner"
-          },
-          "Environment": {
-            "Ref": "Environment"
-          },
-          "ElbHealthTarget": "HTTP:80/"
         }
       }
     }
   },
   "Outputs": {
-    "ELBDNSName": {
-      "Description": "Consul: / ELB CNAME",
-      "Value": {
-        "Fn::GetAtt": [
-          "ELBStack",
-          "Outputs.DNSName"
-        ]
-      }
-    },
     "OktaURL": {
       "Description": "Consul: / Okta URL",
       "Value": {
