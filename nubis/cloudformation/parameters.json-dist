@@ -18,29 +18,5 @@
   {
     "ParameterKey": "AmiId",
     "ParameterValue": "ami-abcdef123"
-  },
-  {
-    "ParameterKey": "ConsulToken",
-    "ParameterValue": "abcd-1234-efgh-4567"
-  },
-  {
-    "ParameterKey": "OktaURL",
-    "ParameterValue": "https://acme.okta.com"
-  },
-  {
-    "ParameterKey": "LDAPHostname",
-    "ParameterValue": "ldap.example.com"
-  },
-  {
-    "ParameterKey": "LDAPBindUser",
-    "ParameterValue": "uid=bind-something,dc=com,ou=something"
-  },
-  {
-    "ParameterKey": "LDAPBindPassword",
-    "ParameterValue": "password123"
-  },
-  {
-    "ParameterKey": "LDAPBaseDN",
-    "ParameterValue": "dc=com"
   }
 ]
