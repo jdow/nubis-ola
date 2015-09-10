@@ -19,6 +19,8 @@
 #### Notes
 * We depend on having consul secure to make this work, so we will need to get an ACL token. You can generate an ACL token using the `uuidgen` command
 
+* There is an optional `ConsulToken` that gets fed into userdata if you have a consul ACL token, and the consul client will know how to talk to consul using the ACL token
+
 * With the ACL token you should make sure you pre-create a K/V folder for your stack, or make sure the ACL has some form of wild card in consul. Example:
     ```
     key "okta*/" {
