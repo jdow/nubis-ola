@@ -18,6 +18,11 @@
       ],
       "ConstraintDescription": "Must specify prod, stage, or sandbox."
     },
+    "BaseZone": {
+      "Description": "Base zone to create route53 zone in",
+      "Default": "nubis.allizom.org",
+      "Type": "String"
+    },
     "SSHKeyName": {
       "Description": "Existing ssh key to deploy to EC2 instances",
       "Type": "String"
@@ -124,6 +129,5 @@
       }
     }
   },
-  "Outputs": {
-  }
+  "Outputs": {}
 }
